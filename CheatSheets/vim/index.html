@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<!-- vim: set ft=html ts=2 sw=2 expandtab: -->
+<html>
+  <head>
+    <title>Git Cheat Sheet</title>
+  </head>
+<body>
+
+<h1>Git</h1>
+
+<p>git cherry-pick –no-commit &lt;hash&gt;</p>
+
+<div>
+<p># dry run</p>
+<p>git clean -f -d -n</p>
+<p>git clean -f -d</p>
+</div>
+
+<div>
+<p># squash last two commits into one - interactive</p>
+<p>git rebase -i HEAD~2</p>
+</div>
+
+<div>
+<p>git push –force</p>
+</div>
+
+<div>
+<p>git revert --no-commit 159995a8856</p>
+</div>
+
+<div>
+<p># delete branch locally
+<p>git branch -d &lt;branch-name&gt;</p>
+</div>
+
+<div>
+<p># checkout modified files to then send to git checkout</p>
+<p>git status -uno | grep modified: | awk '{print $3}' | xargs git checkout</p>
+<p>git reset  --hard</p>
+</div>
+
+<div>
+<p>git log --author="Doe, John <John.Doe@localhost.com>"</p>
+<p>git log --all --grep='TODO'</p>
+</div>
+
+</body>
+</html>
+
