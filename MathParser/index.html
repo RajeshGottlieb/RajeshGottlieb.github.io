@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<!-- vim: set ft=html ts=2 sw=2 expandtab: -->
+<html>
+  <head>
+    <title>Calculator</title>
+  </head>
+<body>
+
+<p>Enter mathematical expression:</p>
+
+<input type="text" id="myText" size="120" value="">
+<br>
+<br>
+
+<button onclick="clickEvaluate()">Evaluate</button>
+<button onclick="clickClear()">Clear</button>
+<button onclick="clickClearAll()">Clear All</button>
+<p id="output"></p>
+
+<!-- <script type="text/javascript" src="math.js"></script> -->
+
+<script>
+
+function makeMathParser() {
+  // define and return desired object
+  // TODO add a method for this: var result = parser.evaluate(expr)
+  // TODO add a method for this: parser.clear()
+  // TODO add parsing logic and state as needed.
+  // TODO is there any value in defining let scoped variables right here
+  // within the closure scope of the returned object?
+
+  return {
+    firstName: "Rajesh",
+    totalScore: 100,
+    gamesPlayed: 3,
+    evaluate: function(expr) {
+      return "firstName: " + this.firstName + " totalScore: " + this.totalScore + " expr: " + expr;
+    },
+      clear: function() {
+    }
+  };
+}
+
+//let makeGamePlayer = (name, totalScore, gamesPlayed) => ({
+//    name,
+//    totalScore,
+//    gamesPlayed
+//})
+
+const parser = makeMathParser()
+var line_separator = ""
+
+function clickEvaluate() {
+  // output the user's expression
+  var expr = document.getElementById("myText").value
+  document.getElementById("output").innerHTML += line_separator + ">> " + expr
+
+  line_separator = "<br>"
+
+  // Evaluate an expression. Returns the result of the expression.
+  var result = parser.evaluate(expr)
+
+  // output the evaluated expression
+  document.getElementById("output").innerHTML += line_separator + result
+}
+
+function clickClear() {
+  document.getElementById("myText").value = ''
+  document.getElementById("output").innerHTML = ""
+
+  line_separator = ""
+}
+
+function clickClearAll() {
+  clickClear()
+
+  // Completely clear the parser’s scope.
+  parser.clear()
+}
+
+// Let the user also use the Enter key to evaluate the expression
+document.getElementById("myText").addEventListener("keyup", function(event) {
+    event.preventDefault();
+    if (event.keyCode === 13) { // enter
+        clickEvaluate()
+    } else if (event.keyCode === 38) { // up arrow
+        // TODO replace input with older historical value
+    } else if (event.keyCode === 40) { // down arrow
+        // TODO replace input with newer historical value or current value
+    }
+});
+
+
+</script>
+
+</body>
+</html>
