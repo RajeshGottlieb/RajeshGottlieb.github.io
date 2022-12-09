@@ -20,7 +20,7 @@
 
 <script>
 
-let debug = true
+let debug = false
 
 class ParseException {
     constructor(msg, offset) {
@@ -46,23 +46,21 @@ class Regex {
 }
 
 // token types
-const Token_UNARY_MINUS = 0
-const Token_UNARY_PLUS  = 1
-const Token_FLOAT       = 2
-const Token_INTEGER     = 3
-const Token_LPAREN      = 4
-const Token_INT_FUNC    = 5
-const Token_FLOAT_FUNC  = 6
-const Token_ROUND_FUNC  = 7
-const Token_ABS_FUNC    = 8
-const Token_SQRT_FUNC   = 9
-const Token_RPAREN      = 10
-const Token_POW         = 11
-const Token_MULT        = 12
-const Token_DIV         = 13
-const Token_MOD         = 14
-const Token_ADD         = 15
-const Token_SUBTRACT    = 16
+const UNARY_MINUS = 0
+const UNARY_PLUS  = 1
+const FLOAT       = 2
+const INTEGER     = 3
+const LPAREN      = 4
+const ROUND       = 7
+const ABS         = 8
+const SQRT        = 9
+const RPAREN      = 10
+const POW         = 11
+const MULT        = 12
+const DIV         = 13
+const MOD         = 14
+const ADD         = 15
+const SUBTRACT    = 16
 
 class BinaryOp {
     constructor(precedence, associative, func) {
@@ -73,57 +71,53 @@ class BinaryOp {
 }
 
 // binary operators
-const binary_op      = new Map([ [ Token_POW        , new BinaryOp(4, "right", (a, b) => a ** b) ],
-                                 [ Token_MULT       , new BinaryOp(3, "left",  (a, b) => a * b) ],
-                                 [ Token_DIV        , new BinaryOp(3, "left",  divide) ],  // (a, b) => a / b)
-                                 [ Token_MOD        , new BinaryOp(3, "left",  modulus) ], // (a, b) => a % b)
-                                 [ Token_ADD        , new BinaryOp(2, "left",  (a, b) => a + b) ],
-                                 [ Token_SUBTRACT   , new BinaryOp(2, "left",  (a, b) => a - b) ] ])
+const binary_op      = new Map([ [ POW        , new BinaryOp(4, "right", (a, b) => a ** b) ],
+                                 [ MULT       , new BinaryOp(3, "left",  (a, b) => a * b) ],
+                                 [ DIV        , new BinaryOp(3, "left",  divide) ],  // (a, b) => a / b)
+                                 [ MOD        , new BinaryOp(3, "left",  modulus) ], // (a, b) => a % b)
+                                 [ ADD        , new BinaryOp(2, "left",  (a, b) => a + b) ],
+                                 [ SUBTRACT   , new BinaryOp(2, "left",  (a, b) => a - b) ] ])
 
-// functions with single operand and surrounding parenthesis. ex: int ( 5.9 ) -> 5
-const math_functions = new Map([ [ Token_INT_FUNC   , (a) => a ],
-                                 [ Token_FLOAT_FUNC , (a) => a ],
-                                 [ Token_ROUND_FUNC , (a) => Math.round(a) ],
-                                 [ Token_ABS_FUNC   , (a) => Math.abs(a) ],
-                                 [ Token_SQRT_FUNC  , (a) => Math.sqrt(a) ] ])
+// functions with single operand and surrounding parenthesis. ex: sqrt (9) -> 3
+const math_functions = new Map([ [ ROUND      , (a) => Math.round(a) ],
+                                 [ ABS        , (a) => Math.abs(a) ],
+                                 [ SQRT       , (a) => Math.sqrt(a) ] ])
 
 const operators = new Set([
-    Token_UNARY_MINUS,
-    Token_UNARY_PLUS,
-    Token_LPAREN,
-    Token_ROUND_FUNC,
-    Token_ABS_FUNC,
-    Token_SQRT_FUNC,
-    Token_RPAREN,
-    Token_POW,
-    Token_MULT,
-    Token_DIV,
-    Token_MOD,
-    Token_ADD,
-    Token_SUBTRACT
+    UNARY_MINUS,
+    UNARY_PLUS,
+    LPAREN,
+    ROUND,
+    ABS,
+    SQRT,
+    RPAREN,
+    POW,
+    MULT,
+    DIV,
+    MOD,
+    ADD,
+    SUBTRACT
 ])
 
 // Token.type to string
 function tokenTypeStr(type) {
     switch (type) {
-        case Token_UNARY_MINUS : return "UNARY_MINUS";
-        case Token_UNARY_PLUS  : return "UNARY_PLUS";
-        case Token_FLOAT       : return "FLOAT";
-        case Token_INTEGER     : return "INTEGER";
-        case Token_LPAREN      : return "LPAREN";
-        case Token_INT_FUNC    : return "INT_FUNC";
-        case Token_FLOAT_FUNC  : return "FLOAT_FUNC";
-        case Token_ROUND_FUNC  : return "ROUND_FUNC";
-        case Token_ABS_FUNC    : return "ABS_FUNC";
-        case Token_SQRT_FUNC   : return "SQRT_FUNC";
-        case Token_RPAREN      : return "RPAREN";
-        case Token_POW         : return "POW";
-        case Token_MULT        : return "MULT";
-        case Token_DIV         : return "DIV";
-        case Token_MOD         : return "MOD";
-        case Token_ADD         : return "ADD";
-        case Token_SUBTRACT    : return "SUBTRACT";
-        default                : return type;
+        case UNARY_MINUS : return "UNARY_MINUS";
+        case UNARY_PLUS  : return "UNARY_PLUS";
+        case FLOAT       : return "FLOAT";
+        case INTEGER     : return "INTEGER";
+        case LPAREN      : return "LPAREN";
+        case ROUND       : return "ROUND";
+        case ABS         : return "ABS";
+        case SQRT        : return "SQRT";
+        case RPAREN      : return "RPAREN";
+        case POW         : return "POW";
+        case MULT        : return "MULT";
+        case DIV         : return "DIV";
+        case MOD         : return "MOD";
+        case ADD         : return "ADD";
+        case SUBTRACT    : return "SUBTRACT";
+        default          : return type;
     }
 }
 
@@ -162,7 +156,6 @@ function lexStateStr(state) {
 const float_regex       = new Regex(/^([0-9]+\.[0-9]+e[+-][0-9]+|[0-9]+\.[0-9]+|\.[0-9]+|[0-9]+\.)/)
 const hexidecimal_regex = new Regex(/^0[xX][0-9a-fA-F]+/)
 const decimal_regex     = new Regex(/^[0-9]+/)
-//const octal_regex       = new Regex(/0[0-7]*/)
 
 // lexer to recognizer tokens in a mathematical expression
 class Lexer {
@@ -206,17 +199,17 @@ class Lexer {
                 // unary plus
                 if (ex.startsWith("+")) {
                     i += "+".length
-                    token = new Token(Token_UNARY_PLUS, "unary +")
+                    token = new Token(UNARY_PLUS, "unary +")
 
                 // unary minus
                 } else if (ex.startsWith("-")) {
                     i += "-".length
-                    token = new Token(Token_UNARY_MINUS, "unary -")
+                    token = new Token(UNARY_MINUS, "unary -")
 
                 // pi
                 } else if (ex.startsWith("pi")) {
                     i += "pi".length
-                    token = new Token(Token_FLOAT, Math.PI)
+                    token = new Token(FLOAT, Math.PI)
                     state = Lexer_AFTER_NUM
 
                 // float TODO 1.2e-2
@@ -225,14 +218,14 @@ class Lexer {
                     let str = float_regex.group(0)
                 //  console.log("float '" + str + "'")
                     i += str.length
-                    token = new Token(Token_FLOAT, parseFloat(str))
+                    token = new Token(FLOAT, parseFloat(str))
                     state = Lexer_AFTER_NUM
 
                 // integer (hexidecimal)
                 } else if (hexidecimal_regex.match(ex)) {
                     let str = hexidecimal_regex.group(0)
                     i += str.length
-                    token = new Token(Token_INTEGER, parseInt(str, 16))
+                    token = new Token(INTEGER, parseInt(str, 16))
                     state = Lexer_AFTER_NUM
 
                 // integer (decimal)
@@ -240,44 +233,27 @@ class Lexer {
                     let str = decimal_regex.group(0)
                 //  console.log("decimal '" + str + "'")
                     i += str.length
-                    token = new Token(Token_INTEGER, parseInt(str))
+                    token = new Token(INTEGER, parseInt(str))
                     state = Lexer_AFTER_NUM
 
-                // integer (octal)
-//              } else if (octal_regex.match(ex)) {
-//                  let str = octal_regex.group(0)
-//                  i += str.length
-//                  token = new Token(Token_INTEGER, int(str, 8))
-//                  state = Lexer_AFTER_NUM
 
                 } else if (ex.startsWith("(")) {
                     i += "(".length
-                    token = new Token(Token_LPAREN, "(")
-
-            //  } else if (ex.startsWith("int")) {
-            //      i += "int".length
-            //      token = new Token((a) => parseInt(a), "int")
-            //
-            //      state = Lexer_AFTER_FUNC
-
-            //  } else if (ex.startsWith("float")) {
-            //      i += "float".length
-            //      token = new Token((a) => parseFloat(a), "float")
-            //      state = Lexer_AFTER_FUNC
+                    token = new Token(LPAREN, "(")
 
                 } else if (ex.startsWith("round")) {
                     i += "round".length
-                    token = new Token((a) => Math.round(a), "round")
+                    token = new Token(ROUND, (a) => Math.round(a), "round")
                     state = Lexer_AFTER_FUNC
 
                 } else if (ex.startsWith("abs")) {
                     i += "abs".length
-                    token = new Token((a) => Math.abs(a), "abs")
+                    token = new Token(ABS, (a) => Math.abs(a), "abs")
                     state = Lexer_AFTER_FUNC
 
                 } else if (ex.startsWith("sqrt")) {
                     i += "sqrt".length
-                    token = new Token((a) => Math.sqrt(a), "sqrt")
+                    token = new Token(SQRT, (a) => Math.sqrt(a), "sqrt")
                     state = Lexer_AFTER_FUNC
 
                 } else {
@@ -288,7 +264,7 @@ class Lexer {
 
                 if (ex.startsWith("(")) {
                     i += "(".length
-                    token = new Token(Token_LPAREN, "(")
+                    token = new Token(LPAREN, "(")
                     state = Lexer_START
                 } else {
                     throw new ParseException("unexpected input", i)
@@ -298,36 +274,36 @@ class Lexer {
 
                 if (ex.startsWith(")")) {
                     i += ")".length
-                    token = new Token(Token_RPAREN, ")")
+                    token = new Token(RPAREN, ")")
 
                 } else if (ex.startsWith("**")) {
                     i += "**".length
-                    token = new Token(Token_POW, "**")
+                    token = new Token(POW, "**")
                     state = Lexer_START
 
                 } else if (ex.startsWith("*")) {
                     i += "*".length
-                    token = new Token(Token_MULT, "*")
+                    token = new Token(MULT, "*")
                     state = Lexer_START
 
                 } else if (ex.startsWith("/")) {
                     i += "/".length
-                    token = new Token(Token_DIV, "/")
+                    token = new Token(DIV, "/")
                     state = Lexer_START
 
                 } else if (ex.startsWith("%")) {
                     i += "%".length
-                    token = new Token(Token_MOD, "%")
+                    token = new Token(MOD, "%")
                     state = Lexer_START
 
                 } else if (ex.startsWith("+")) {
                     i += "+".length
-                    token = new Token(Token_ADD, "+")
+                    token = new Token(ADD, "+")
                     state = Lexer_START
 
                 } else if (ex.startsWith("-")) {
                     i += "-".length
-                    token = new Token(Token_SUBTRACT, "-")
+                    token = new Token(SUBTRACT, "-")
                     state = Lexer_START
                 } else {
                     throw new ParseException("unexpected input '" + ex + "' i=" + i, i)
@@ -375,30 +351,28 @@ class MathParser {
         }
     }
 
-//  unary_minus_operator_on_top_of_operator_stack() {
-//      return this.operator_stack.length > 0 && this.operator_stack[-1].type == Token_UNARY_MINUS
-//  }
-//
-//  negate_operand_on_top_of_operand_stack() {
-//      // pop the unary minus from the operaror_stack
-//      this.operator_stack.pop()
-//      // pop the operand (number) which belongs with the unary minus operator from the operand_stack stack, negate it and push it back
-//      this.operand_stack.push(-this.operand_stack.pop())
-//  }
-//  
-//  while (this.unary_minus_operator_on_top_of_operator_stack()) {
-//      this.negate_operand_on_top_of_operand_stack();
-//  }
+    unary_minus_on_top_of_operator_stack() {
+        return this.operator_stack.length > 0 &&
+               this.operator_stack[this.operator_stack.length - 1].type == UNARY_MINUS
+    }
+
+    negate_operand_on_top_of_operand_stack() {
+        // pop the unary minus from the operaror_stack
+        this.operator_stack.pop()
+        // negate the operand
+        this.operand_stack.push(0 - this.operand_stack.pop())
+    }
 
     apply_unary_minus() {
-        // while there is a unary minus operator on the top of the operator_stack
-        while (this.operator_stack.length > 0 && this.operator_stack[this.operator_stack.length - 1].type == Token_UNARY_MINUS) {
-            // pop the unary minus from the operaror_stack
-            this.operator_stack.pop()
-            // pop the operand (number) which belongs with the unary minus operator from the operand_stack stack, negate it and push it back
-            this.operand_stack.push(0 - this.operand_stack.pop())
+        while (this.unary_minus_on_top_of_operator_stack()) {
+            this.negate_operand_on_top_of_operand_stack();
         }
         this.dump_stacks()
+    }
+
+    operands_append(number) {
+        this.operand_stack.push(number)
+        this.apply_unary_minus()
     }
 
     evaluate(expr) {
@@ -413,18 +387,18 @@ class MathParser {
                 console.log("token ==> " + token)
             }
 
-            if (token.type == Token_INTEGER || token.type == Token_FLOAT) {
+            if (token.type == INTEGER || token.type == FLOAT) {
             //  console.log("numeric operand")
                 // put numbers on the operand_stack
-                this.operand_stack.push(token.val)
+                this.operands_append(token.val)
             } else if (math_functions.has(token.type)) {
             //  console.log("math function")
                 // put functions on the operator_stack
                 this.operator_stack.push(token)
-            } else if (token.type == Token_UNARY_MINUS) {
+            } else if (token.type == UNARY_MINUS) {
                 // put unary minus on the operator_stack
                 this.operator_stack.push(token)
-            } else if (token.type == Token_UNARY_PLUS) {
+            } else if (token.type == UNARY_PLUS) {
                 // don't need to do anything with unary plus
                 pass
             } else if (binary_op.has(token.type)) {
@@ -446,19 +420,19 @@ class MathParser {
                         // apply the function to the two operands
                         let result = old_op.func(left_operand, right_operand)
                         // push the result onto the operand_stack
-                        this.operand_stack.push(result)
+                        this.operands_append(result)
                     } else {
                         break
                     }
                 }
                 this.operator_stack.push(token)
 
-            } else if (token.type == Token_LPAREN) {
+            } else if (token.type == LPAREN) {
                 this.operator_stack.push(token)
-            } else if (token.type == Token_RPAREN) {
+            } else if (token.type == RPAREN) {
 
                 let op = this.operator_stack.pop()
-                while (op.type != Token_LPAREN) {
+                while (op.type != LPAREN) {
 
                     if (binary_op.has(op.type)) {
                         if (this.operand_stack.length < 2) {
@@ -471,15 +445,16 @@ class MathParser {
                         let binary_function = binary_op.get(op.type).func
                         let result = binary_function(left_operand, right_operand)
                         // push the result onto the operand_stack
-                        this.operand_stack.push(result)
+                        this.operands_append(result)
                     }
                     op = this.operator_stack.pop()
                 }
 
                 if (this.operator_stack.length > 0 && math_functions.has(this.operator_stack[this.operator_stack.length - 1].type)) {
                     op = this.operator_stack.pop()
-                    operator_function = math_functions[op.type]
-                    this.operand_stack.push(operator_function(this.operand_stack.pop()))
+                    let operator_function = math_functions.get(op.type)
+                    console.log(op.type)
+                    this.operands_append(operator_function(this.operand_stack.pop()))
                 }
 
                 this.apply_unary_minus()
@@ -507,7 +482,7 @@ class MathParser {
             let left  = this.operand_stack.pop()
             let binary_function = binary_op.get(op.type).func
             let result = binary_function(left, right)
-            this.operand_stack.push(result)
+            this.operands_append(result)
         }
 
         return this.operand_stack.pop()
@@ -562,9 +537,8 @@ const test_list = [ [ "1 + 1", 1 + 1 ],
                     [ "6 * (5 + 4) / 3", 6 * (5 + 4) / 3 ],
                     [ "-(-(-5))", -(-(-5)) ],
                     [ "25*-(-(-4))", 25*-(-(-4)) ],
-                //  [ "-(-(-int(17.9))) % 5", Math.abs(-(-(-int(17.9)))) % 5 * (-1 if ((-(-(-int(17.9)))) < 0) != ((5) < 0) else 1) ],
                     [ "abs(2.0 / -3)", Math.abs(2.0 / -3) ],
-                    [ "2 * pi * 3**2", 2 * Math.pi * 3**2 ],
+                    [ "2 * pi * 3**2", 2 * Math.PI * 3**2 ],
                     [ "2/3", 2/3 ],
                     [ "2.0**2 / 2.0**2 / 2.0**2", 2.0**2 / 2.0**2 / 2.0**2 ],
                     [ "4**2 - 3**2 - 2**2", 4**2 - 3**2 - 2**2 ],
@@ -574,18 +548,17 @@ const test_list = [ [ "1 + 1", 1 + 1 ],
 function clickSelfTest() {
     for (let i = 0; i < test_list.length; i++) {
         let expr           = test_list[i][0]
-        let correct_result = test_list[i][1]
+        let expected_result = test_list[i][1]
         document.getElementById("myText").value = expr
 
         document.getElementById("output").innerHTML += line_separator + ">> " + expr
-//      console.log("expr: " + expr + " correct_result: " + correct_result);
 
         line_separator = "<br>"
 
         // Evaluate an expression. Returns the result of the expression.
         let result = parser.evaluate(expr)
-        if (result != correct_result) {
-            console.log("FAIL expr: " + expr + " result: " + result + " correct_result: " + correct_result);
+        if (result != expected_result) {
+            console.log("FAIL expr: " + expr + " result: " + result + " expected_result: " + expected_result);
         }
 
         // output the evaluated expression
