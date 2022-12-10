@@ -22,12 +22,29 @@
 
 let debug = false
 
-class ParseException {
-    constructor(msg, offset) {
-        console.log(msg + " " + offset)
-        this.msg = msg
-        this.offset = offset
+// 8 + 13 / 4
+//        ^
+function exprOffset(expr, offset) {
+    let s = expr + "\n" + "-".repeat(offset) + "^"
+    return s
+}
+
+class LexerException {
+    constructor(errorStr, expr, offset) {
+        this.msg = errorStr + "\n" + exprOffset(expr, offset)
     }
+    toString() {
+        return this.msg
+    } 
+}
+
+class ParseException {
+    constructor(msg) {
+        this.msg = msg
+    }
+    toString() {
+        return this.msg
+    } 
 }
 
 // regular expression helper object
@@ -45,92 +62,59 @@ class Regex {
     }
 }
 
-// token types
-const UNARY_MINUS = 0
-const UNARY_PLUS  = 1
-const FLOAT       = 2
-const INTEGER     = 3
-const LPAREN      = 4
-const ROUND       = 7
-const ABS         = 8
-const SQRT        = 9
-const RPAREN      = 10
-const POW         = 11
-const MULT        = 12
-const DIV         = 13
-const MOD         = 14
-const ADD         = 15
-const SUBTRACT    = 16
-
-class BinaryOp {
-    constructor(precedence, associative, func) {
-        this.precedence  = precedence
-        this.associative = associative
-        this.func        = func
-    }
-}
-
-// binary operators
-const binary_op      = new Map([ [ POW        , new BinaryOp(4, "right", (a, b) => a ** b) ],
-                                 [ MULT       , new BinaryOp(3, "left",  (a, b) => a * b) ],
-                                 [ DIV        , new BinaryOp(3, "left",  divide) ],  // (a, b) => a / b)
-                                 [ MOD        , new BinaryOp(3, "left",  modulus) ], // (a, b) => a % b)
-                                 [ ADD        , new BinaryOp(2, "left",  (a, b) => a + b) ],
-                                 [ SUBTRACT   , new BinaryOp(2, "left",  (a, b) => a - b) ] ])
-
-// functions with single operand and surrounding parenthesis. ex: sqrt (9) -> 3
-const math_functions = new Map([ [ ROUND      , (a) => Math.round(a) ],
-                                 [ ABS        , (a) => Math.abs(a) ],
-                                 [ SQRT       , (a) => Math.sqrt(a) ] ])
-
-const operators = new Set([
-    UNARY_MINUS,
-    UNARY_PLUS,
-    LPAREN,
-    ROUND,
-    ABS,
-    SQRT,
-    RPAREN,
-    POW,
-    MULT,
-    DIV,
-    MOD,
-    ADD,
-    SUBTRACT
-])
-
-// Token.type to string
-function tokenTypeStr(type) {
-    switch (type) {
-        case UNARY_MINUS : return "UNARY_MINUS";
-        case UNARY_PLUS  : return "UNARY_PLUS";
-        case FLOAT       : return "FLOAT";
-        case INTEGER     : return "INTEGER";
-        case LPAREN      : return "LPAREN";
-        case ROUND       : return "ROUND";
-        case ABS         : return "ABS";
-        case SQRT        : return "SQRT";
-        case RPAREN      : return "RPAREN";
-        case POW         : return "POW";
-        case MULT        : return "MULT";
-        case DIV         : return "DIV";
-        case MOD         : return "MOD";
-        case ADD         : return "ADD";
-        case SUBTRACT    : return "SUBTRACT";
-        default          : return type;
-    }
-}
-
 class Token {
-    constructor(type, val) {
-        this.type = type
-        this.val  = val
+    constructor(str) {
+        this.str = str
     }
     toString() {
-        if (operators.has(this.type)) {
-            return tokenTypeStr(this.type)
-        }
-        return "{ type:" + tokenTypeStr(this.type) + ", val:" + this.val + " }"
+        return this.str
+    }
+}
+
+class Number extends Token {
+    constructor(str, val) {
+        super(str)
+        this.val  = val
+    }
+}
+
+class MathFunc extends Token {
+    constructor(str, func) {
+        super(str)
+        this.func = func
+    }
+}
+
+class UnaryMinus extends Token {
+    constructor() {
+        super("unary -")
+    }
+}
+
+class UnaryPlus extends Token {
+    constructor() {
+        super("unary +")
+    }
+}
+
+class LParen extends Token {
+    constructor() {
+        super("(")
+    }
+}
+
+class RParen extends Token {
+    constructor() {
+        super(")")
+    }
+}
+
+class BinaryOperator extends Token {
+    constructor(str, precedence, associative, func) {
+        super(str)
+        this.precedence = precedence   // integer number. higher or same precedence binary operations are performed first
+        this.associative = associative // "left" or "right"
+        this.func = func
     }
 }
 
@@ -172,153 +156,148 @@ class Lexer {
 
     getToken() {
 
-        let expr = this.expr
-        let i = this.i
-        let state = this.state
-
         // skip over white space
-        while (i < expr.length && (expr[i] == " " || expr[i] == "\t")) {
-            i += 1
+        while (this.i < this.expr.length && (this.expr[this.i] == " " || this.expr[this.i] == "\t")) {
+            this.i += 1
         }
 
         if (debug) {
-            // 8 + 13 / 4
-            //        ^
-            console.log(expr)
-            console.log("-".repeat(i) + "^")
+            console.log(exprOffset(this.expr, this.i))
         }
 
-        let token = null
+        if (this.i < this.expr.length) {
 
-        if (i < expr.length) {
+            let ex = this.expr.slice(this.i)
 
-            let ex = this.expr.slice(i)
-
-            if (state == Lexer_START) {
+            if (this.state == Lexer_START) {
 
                 // unary plus
                 if (ex.startsWith("+")) {
-                    i += "+".length
-                    token = new Token(UNARY_PLUS, "unary +")
+                    this.i += "+".length
+                    return new UnaryPlus()
 
                 // unary minus
                 } else if (ex.startsWith("-")) {
-                    i += "-".length
-                    token = new Token(UNARY_MINUS, "unary -")
+                    this.i += "-".length
+                    return new UnaryMinus()
 
                 // pi
                 } else if (ex.startsWith("pi")) {
-                    i += "pi".length
-                    token = new Token(FLOAT, Math.PI)
-                    state = Lexer_AFTER_NUM
+                    this.i += "pi".length
+                    this.state = Lexer_AFTER_NUM
+                    return new Number("pi", Math.PI)
 
                 // float TODO 1.2e-2
                 // ([0-9]+|[0-9]*\.[0-9]+|[0-9]+\.[0-9]*)(e[-+]?[0-9]+)?
                 } else if (float_regex.match(ex)) {
                     let str = float_regex.group(0)
-                //  console.log("float '" + str + "'")
-                    i += str.length
-                    token = new Token(FLOAT, parseFloat(str))
-                    state = Lexer_AFTER_NUM
+                    this.i += str.length
+                    this.state = Lexer_AFTER_NUM
+                    return new Number(str, parseFloat(str))
 
                 // integer (hexidecimal)
                 } else if (hexidecimal_regex.match(ex)) {
                     let str = hexidecimal_regex.group(0)
-                    i += str.length
-                    token = new Token(INTEGER, parseInt(str, 16))
-                    state = Lexer_AFTER_NUM
+                    this.i += str.length
+                    this.state = Lexer_AFTER_NUM
+                    return new Number(str, parseInt(str, 16))
 
                 // integer (decimal)
                 } else if (decimal_regex.match(ex)) {
                     let str = decimal_regex.group(0)
-                //  console.log("decimal '" + str + "'")
-                    i += str.length
-                    token = new Token(INTEGER, parseInt(str))
-                    state = Lexer_AFTER_NUM
-
+                    this.i += str.length
+                    this.state = Lexer_AFTER_NUM
+                    return new Number(str, parseInt(str))
 
                 } else if (ex.startsWith("(")) {
-                    i += "(".length
-                    token = new Token(LPAREN, "(")
+                    this.i += "(".length
+                    return new LParen()
 
                 } else if (ex.startsWith("round")) {
-                    i += "round".length
-                    token = new Token(ROUND, (a) => Math.round(a), "round")
-                    state = Lexer_AFTER_FUNC
+                    this.i += "round".length
+                    this.state = Lexer_AFTER_FUNC
+                    return new MathFunc("round", (a) => Math.round(a))
 
                 } else if (ex.startsWith("abs")) {
-                    i += "abs".length
-                    token = new Token(ABS, (a) => Math.abs(a), "abs")
-                    state = Lexer_AFTER_FUNC
+                    this.i += "abs".length
+                    this.state = Lexer_AFTER_FUNC
+                    return new MathFunc("abs", (a) => Math.abs(a))
 
                 } else if (ex.startsWith("sqrt")) {
-                    i += "sqrt".length
-                    token = new Token(SQRT, (a) => Math.sqrt(a), "sqrt")
-                    state = Lexer_AFTER_FUNC
+                    this.i += "sqrt".length
+                    this.state = Lexer_AFTER_FUNC
+                    return new MathFunc("sqrt", (a) => Math.sqrt(a))
+
+                } else if (ex.startsWith("sin")) {
+                    this.i += "sin".length
+                    this.state = Lexer_AFTER_FUNC
+                    return new MathFunc("sin", (a) => Math.sin(a))
+
+                } else if (ex.startsWith("cos")) {
+                    this.i += "cos".length
+                    this.state = Lexer_AFTER_FUNC
+                    return new MathFunc("cos", (a) => Math.cos(a))
 
                 } else {
-                    throw new ParseException("unexpected input", i)
+                    throw new LexerException("unexpected input", this.expr, i)
                 }
 
-            } else if (state == Lexer_AFTER_FUNC) {
+            } else if (this.state == Lexer_AFTER_FUNC) {
 
                 if (ex.startsWith("(")) {
-                    i += "(".length
-                    token = new Token(LPAREN, "(")
-                    state = Lexer_START
+                    this.i += "(".length
+                    this.state = Lexer_START
+                    return new LParen()
                 } else {
-                    throw new ParseException("unexpected input", i)
+                    throw new LexerException("unexpected input", this.expr, i)
                 }
 
-            } else if (state == Lexer_AFTER_NUM) {
+            } else if (this.state == Lexer_AFTER_NUM) {
 
                 if (ex.startsWith(")")) {
-                    i += ")".length
-                    token = new Token(RPAREN, ")")
+                    this.i += ")".length
+                    return new RParen()
 
                 } else if (ex.startsWith("**")) {
-                    i += "**".length
-                    token = new Token(POW, "**")
-                    state = Lexer_START
+                    this.i += "**".length
+                    this.state = Lexer_START
+                    return new BinaryOperator("**", 4, "right", (a, b) => a ** b)
 
                 } else if (ex.startsWith("*")) {
-                    i += "*".length
-                    token = new Token(MULT, "*")
-                    state = Lexer_START
+                    this.i += "*".length
+                    this.state = Lexer_START
+                    return new BinaryOperator("*", 3, "left",  (a, b) => a * b)
 
                 } else if (ex.startsWith("/")) {
-                    i += "/".length
-                    token = new Token(DIV, "/")
-                    state = Lexer_START
+                    this.i += "/".length
+                    this.state = Lexer_START
+                    return new BinaryOperator("/", 3, "left",  (a, b) => a / b)
 
                 } else if (ex.startsWith("%")) {
-                    i += "%".length
-                    token = new Token(MOD, "%")
-                    state = Lexer_START
+                    this.i += "%".length
+                    this.state = Lexer_START
+                    return new BinaryOperator("%", 3, "left",  (a, b) => a % b)
 
                 } else if (ex.startsWith("+")) {
-                    i += "+".length
-                    token = new Token(ADD, "+")
-                    state = Lexer_START
+                    this.i += "+".length
+                    this.state = Lexer_START
+                    return new BinaryOperator("+", 2, "left",  (a, b) => a + b)
 
                 } else if (ex.startsWith("-")) {
-                    i += "-".length
-                    token = new Token(SUBTRACT, "-")
-                    state = Lexer_START
+                    this.i += "-".length
+                    this.state = Lexer_START
+                    return new BinaryOperator("-", 2, "left",  (a, b) => a - b)
                 } else {
-                    throw new ParseException("unexpected input '" + ex + "' i=" + i, i)
+                    throw new LexerException("unexpected input", this.expr, i)
                 }
             }
         }
 
-        this.i = i
-        this.state = state
+//      if (debug) {
+//          console.log("lex state=" + lexStateStr(state))
+//      }
 
-        if (debug) {
-            console.log("lex state=" + lexStateStr(state))
-        }
-
-        return token
+        return null
     }
 }
 
@@ -353,7 +332,7 @@ class MathParser {
 
     unary_minus_on_top_of_operator_stack() {
         return this.operator_stack.length > 0 &&
-               this.operator_stack[this.operator_stack.length - 1].type == UNARY_MINUS
+               this.operator_stack[this.operator_stack.length - 1] instanceof UnaryMinus
     }
 
     negate_operand_on_top_of_operand_stack() {
@@ -387,31 +366,32 @@ class MathParser {
                 console.log("token ==> " + token)
             }
 
-            if (token.type == INTEGER || token.type == FLOAT) {
-            //  console.log("numeric operand")
+            if (token instanceof Number) {
                 // put numbers on the operand_stack
                 this.operands_append(token.val)
-            } else if (math_functions.has(token.type)) {
-            //  console.log("math function")
+            } else if (token instanceof MathFunc) {
                 // put functions on the operator_stack
                 this.operator_stack.push(token)
-            } else if (token.type == UNARY_MINUS) {
+            } else if (token instanceof UnaryMinus) {
                 // put unary minus on the operator_stack
                 this.operator_stack.push(token)
-            } else if (token.type == UNARY_PLUS) {
+            } else if (token instanceof UnaryPlus) {
                 // don't need to do anything with unary plus
                 pass
-            } else if (binary_op.has(token.type)) {
+            } else if (token instanceof BinaryOperator) {
                 // if the token is a binary operator
-            //  console.log("binary operator")
 
-                let new_op = binary_op.get(token.type)
+                let new_op = token
 
                 // if there is a binary operator already on the operator_stack with a higher precedence than this new one
                 // go ahead and perform that operation before putting this new operator onto the operator_stack
-                while (this.operator_stack.length > 0 && binary_op.has(this.operator_stack[this.operator_stack.length - 1].type)) {
-                    let old_op = binary_op.get(this.operator_stack[this.operator_stack.length - 1].type)
-                    if ((new_op.associative == "left" && new_op.precedence <= old_op.precedence) || (new_op.associative == "right" && new_op.precedence < old_op.precedence)) {
+                // left associative: "2 * 3 + 4" should operate like this: (2 * 3) + 4
+                // left associative: "2 + 3 + 4" should operate like this: (2 + 3) + 4
+                // right associative: "2 ** 3 ** 4" should operate like this: 2 ** (3 ** 4)
+                while (this.operator_stack.length > 0 && this.operator_stack[this.operator_stack.length - 1] instanceof BinaryOperator) {
+                    let old_op = this.operator_stack[this.operator_stack.length - 1]
+                    if ((new_op.associative == "left" && new_op.precedence <= old_op.precedence) ||
+                        (new_op.associative == "right" && new_op.precedence < old_op.precedence)) {
                         // pop the old op from the operator_stack
                         this.operator_stack.pop()
                         // get the two operands
@@ -425,36 +405,32 @@ class MathParser {
                         break
                     }
                 }
-                this.operator_stack.push(token)
+                this.operator_stack.push(new_op)
 
-            } else if (token.type == LPAREN) {
+            } else if (token instanceof LParen) {
                 this.operator_stack.push(token)
-            } else if (token.type == RPAREN) {
+            } else if (token instanceof RParen) {
 
                 let op = this.operator_stack.pop()
-                while (op.type != LPAREN) {
+                while (!(op instanceof LParen)) {
 
-                    if (binary_op.has(op.type)) {
+                    if (op instanceof BinaryOperator) {
                         if (this.operand_stack.length < 2) {
-                            throw new ParseException("not enough operands for " + stack_op.val, lex.i)
+                            throw new ParseException("not enough operands for binary op: " + op.str)
                         }
                         // get the two operands
                         let right_operand = this.operand_stack.pop()
                         let left_operand  = this.operand_stack.pop()
-                        // get the right binary operator function to call
-                        let binary_function = binary_op.get(op.type).func
-                        let result = binary_function(left_operand, right_operand)
+                        let result = op.func(left_operand, right_operand)
                         // push the result onto the operand_stack
                         this.operands_append(result)
                     }
                     op = this.operator_stack.pop()
                 }
 
-                if (this.operator_stack.length > 0 && math_functions.has(this.operator_stack[this.operator_stack.length - 1].type)) {
+                if (this.operator_stack.length > 0 && this.operator_stack[this.operator_stack.length - 1] instanceof MathFunc) {
                     op = this.operator_stack.pop()
-                    let operator_function = math_functions.get(op.type)
-                    console.log(op.type)
-                    this.operands_append(operator_function(this.operand_stack.pop()))
+                    this.operands_append(op.func(this.operand_stack.pop()))
                 }
 
                 this.apply_unary_minus()
@@ -471,17 +447,15 @@ class MathParser {
 
         while (this.operator_stack.length > 0) {
             let op = this.operator_stack.pop()
-        //  console.log("op: " + op)
-            if (!(binary_op.has(op.type))) {
-                throw new ParseException("invalid binary operator " + op.val, lex.i)
+            if (!(op instanceof BinaryOperator)) {
+                throw new ParseException("invalid binary operator " + op.val)
             }
             if (this.operand_stack.length < 2) {
-                throw new ParseException("not enough operands for " + op.val, lex.i)
+                throw new ParseException("not enough operands for binary operator:" + this.operand_stack.length)
             }
             let right = this.operand_stack.pop()
             let left  = this.operand_stack.pop()
-            let binary_function = binary_op.get(op.type).func
-            let result = binary_function(left, right)
+            let result = op.func(left, right)
             this.operands_append(result)
         }
 
@@ -505,12 +479,19 @@ function clickEvaluate() {
     // output the user's expression
     let expr = document.getElementById("myText").value
     document.getElementById("output").innerHTML += line_separator + ">> " + expr
-//  console.log("expr: " + expr);
 
     line_separator = "<br>"
 
+    let result = ""
+
     // Evaluate an expression. Returns the result of the expression.
-    let result = parser.evaluate(expr)
+    try {
+        result = parser.evaluate(expr)
+    } catch (error) {
+        let errorStr = error.toString()
+        console.log(errorStr)
+        result = "<pre>" + errorStr + "</pre>"
+    }
 
     // output the evaluated expression
     document.getElementById("output").innerHTML += line_separator + result
