@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- vim: set ft=html ts=2 sw=2 expandtab: -->
+<!-- vim: set ft=html ts=4 sw=4 expandtab: -->
 <html>
   <head>
     <title>Calculator</title>
@@ -12,9 +12,10 @@
 <br>
 <br>
 
-<button onclick="myFunction()">Evaluate</button>
-<button onclick="myClear()">Clear</button>
-<button onclick="myClearAll()">Clear All</button>
+<button onclick="clickEvaluate()">Evaluate</button>
+<button onclick="clickClear()">Clear</button>
+<button onclick="clickClearAll()">Clear All</button>
+<button onclick="clickRunExamples()">Run Examples</button>
 <p id="output"></p>
 
 <script type="text/javascript" src="math.js"></script>
@@ -22,48 +23,103 @@
 <script>
 
 const parser = math.parser()
-var line_separator = ""
+let line_separator = ""
 
-function myFunction() {
-  // output the user's expression
-  var expr = document.getElementById("myText").value
-  document.getElementById("output").innerHTML += line_separator + ">> " + expr
+function clickEvaluate() {
+    // output the user's expression
+    let expr = document.getElementById("myText").value
+    document.getElementById("output").innerHTML += line_separator + ">> " + expr
 
-  line_separator = "<br>"
+    line_separator = "<br>"
 
-  // Evaluate an expression. Returns the result of the expression.
-  var result = parser.evaluate(expr)
+    let result = ""
 
-  // output the evaluated expression
-  document.getElementById("output").innerHTML += line_separator + result
+    // Evaluate an expression. Returns the result of the expression.
+    try {
+        result = parser.evaluate(expr)
+    } catch (error) {
+        result = "<pre>" + error.toString() + "</pre>"
+    }
+
+    // output the evaluated expression
+    document.getElementById("output").innerHTML += line_separator + result
 }
 
-function myClear() {
-  document.getElementById("myText").value = ''
-  document.getElementById("output").innerHTML = ""
+function clickClear() {
+    document.getElementById("myText").value = ""
+    document.getElementById("output").innerHTML = ""
 
-  line_separator = ""
+    line_separator = ""
 }
 
-function myClearAll() {
-  myClear()
+function clickClearAll() {
+    clickClear()
 
-  // Completely clear the parser’s scope.
-  parser.clear()
+    // Completely clear the parser scope.
+    parser.clear()
+}
+
+const examples = [ [ "1 + 1", 1 + 1 ],
+                   [ "99 % 10", 99 % 10 ],
+                   [ "(1 + (2 + (3 + (4 + (5)))))", (1 + (2 + (3 + (4 + (5))))) ],
+                   [ "((((((2) * 3) * 4) * 5) * 6) * 7)", ((((((2) * 3) * 4) * 5) * 6) * 7) ],
+                   [ "2^3^4", 2**3**4 ],
+                   [ "6 * (5 + 4) / 3", 6 * (5 + 4) / 3 ],
+                   [ "-(-(-5))", -(-(-5)) ],
+                   [ "25*-(-(-4))", 25*-(-(-4)) ],
+                   [ "abs(2.0 / -3)", Math.abs(2.0 / -3) ],
+                   [ "2 * pi * 3^2", 2 * Math.PI * 3**2 ],
+                   [ "2/3", 2/3 ],
+                   [ "2.0^2 / 2.0^2 / 2.0^2", 2.0**2 / 2.0**2 / 2.0**2 ],
+                   [ "4^2 - 3^2 - 2^2", 4**2 - 3**2 - 2**2 ],
+                   [ "(2)/3", (2)/3 ],
+                   [ "round(10.0/3)", Math.round(10.0/3) ],
+                   [ "sin(pi/2)", Math.sin(Math.PI/2) ],
+                   [ "cos(pi/4)", Math.cos(Math.PI/4) ],
+                   [ "tan(pi/6)", Math.tan(Math.PI/6) ] ]
+
+function clickRunExamples() {
+    for (let i = 0; i < examples.length; i++) {
+        let expr            = examples[i][0]
+        let expected_result = examples[i][1]
+
+        document.getElementById("myText").value = expr
+        document.getElementById("output").innerHTML += line_separator + ">> " + expr
+
+        line_separator = "<br>"
+
+        let result = ""
+
+        // Evaluate an expression. Returns the result of the expression.
+        try {
+            result = parser.evaluate(expr)
+
+            if (result != expected_result) {
+                result = "<pre>FAIL expr: " + expr + "\nresult: " + result + "\nexpected_result: " + expected_result + "</pre>"
+            }
+
+        } catch (error) {
+            result = "<pre>" + error.toString() + "</pre>"
+        }
+
+        // output the evaluated expression
+        document.getElementById("output").innerHTML += line_separator + result
+    }
 }
 
 // Let the user also use the Enter key to evaluate the expression
-document.getElementById("myText").addEventListener("keyup", function(event) {
-    event.preventDefault();
-    if (event.keyCode === 13) { // enter
-        myFunction()
-    } else if (event.keyCode === 38) { // up arrow
-        // TODO replace input with older historical value
-    } else if (event.keyCode === 40) { // down arrow
-        // TODO replace input with newer historical value
+document.getElementById("myText").addEventListener("keyup",
+    function(event) {
+        event.preventDefault();
+        if (event.keyCode === 13) { // enter
+            clickEvaluate()
+        } else if (event.keyCode === 38) { // up arrow
+            // TODO replace input with older historical value
+        } else if (event.keyCode === 40) { // down arrow
+            // TODO replace input with newer historical value or current value
+        }
     }
-});
-
+)
 
 </script>
 

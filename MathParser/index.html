@@ -15,459 +15,12 @@
 <button onclick="clickEvaluate()">Evaluate</button>
 <button onclick="clickClear()">Clear</button>
 <button onclick="clickClearAll()">Clear All</button>
-<button onclick="clickSelfTest()">Self Test</button>
+<button onclick="clickRunExamples()">Run Examples</button>
 <p id="output"></p>
 
+<script type="text/javascript" src="mathParser.js"></script>
+
 <script>
-
-let debug = false
-
-// 8 + 13 / 4
-//        ^
-function exprOffset(expr, offset) {
-    let s = expr + "\n" + "-".repeat(offset) + "^"
-    return s
-}
-
-class LexerException {
-    constructor(errorStr, expr, offset) {
-        this.msg = errorStr + "\n" + exprOffset(expr, offset)
-    }
-    toString() {
-        return this.msg
-    } 
-}
-
-class ParseException {
-    constructor(msg) {
-        this.msg = msg
-    }
-    toString() {
-        return this.msg
-    } 
-}
-
-// regular expression helper object
-class Regex {
-    constructor(regex) {
-        this.regex = regex
-        this.m = null
-    }
-    match(s) {
-      this.m = s.match(this.regex)
-      return this.m != null
-    }
-    group(n) {
-       return this.m[n]
-    }
-}
-
-class Token {
-    constructor(str) {
-        this.str = str
-    }
-    toString() {
-        return this.str
-    }
-}
-
-class Number extends Token {
-    constructor(str, val) {
-        super(str)
-        this.val  = val
-    }
-}
-
-class MathFunc extends Token {
-    constructor(str, func) {
-        super(str)
-        this.func = func
-    }
-}
-
-class UnaryMinus extends Token {
-    constructor() {
-        super("unary -")
-    }
-}
-
-class UnaryPlus extends Token {
-    constructor() {
-        super("unary +")
-    }
-}
-
-class LParen extends Token {
-    constructor() {
-        super("(")
-    }
-}
-
-class RParen extends Token {
-    constructor() {
-        super(")")
-    }
-}
-
-class BinaryOperator extends Token {
-    constructor(str, precedence, associative, func) {
-        super(str)
-        this.precedence = precedence   // integer number. higher or same precedence binary operations are performed first
-        this.associative = associative // "left" or "right"
-        this.func = func
-    }
-}
-
-// lex states
-const Lexer_START           = 0 // expect the things that can come at the start of an expression
-const Lexer_AFTER_NUM       = 1 // expect the things that can follow a number or number like sub expression
-const Lexer_AFTER_FUNC      = 2 //
-
-// Lexer.state to string
-function lexStateStr(state) {
-    switch (state) {
-        case Lexer_START      : return "START";
-        case Lexer_AFTER_NUM  : return "AFTER_NUM";
-        case Lexer_AFTER_FUNC : return "AFTER_FUNC";
-        default               : return state;
-    }
-}
-
-// floats: 2.4178516392292583e+24
-//         1.125
-//         .333
-//         5.
-const float_regex       = new Regex(/^([0-9]+\.[0-9]+e[+-][0-9]+|[0-9]+\.[0-9]+|\.[0-9]+|[0-9]+\.)/)
-const hexidecimal_regex = new Regex(/^0[xX][0-9a-fA-F]+/)
-const decimal_regex     = new Regex(/^[0-9]+/)
-
-// lexer to recognizer tokens in a mathematical expression
-class Lexer {
-
-    constructor(expr) {
-        this.i = 0
-        this.state = Lexer_START
-        this.expr = expr
-
-        if (debug) {
-            console.log("lex state=" + lexStateStr(this.state))
-        }
-    }
-
-    getToken() {
-
-        // skip over white space
-        while (this.i < this.expr.length && (this.expr[this.i] == " " || this.expr[this.i] == "\t")) {
-            this.i += 1
-        }
-
-        if (debug) {
-            console.log(exprOffset(this.expr, this.i))
-        }
-
-        if (this.i < this.expr.length) {
-
-            let ex = this.expr.slice(this.i)
-
-            if (this.state == Lexer_START) {
-
-                // unary plus
-                if (ex.startsWith("+")) {
-                    this.i += "+".length
-                    return new UnaryPlus()
-
-                // unary minus
-                } else if (ex.startsWith("-")) {
-                    this.i += "-".length
-                    return new UnaryMinus()
-
-                // pi
-                } else if (ex.startsWith("pi")) {
-                    this.i += "pi".length
-                    this.state = Lexer_AFTER_NUM
-                    return new Number("pi", Math.PI)
-
-                // float TODO 1.2e-2
-                // ([0-9]+|[0-9]*\.[0-9]+|[0-9]+\.[0-9]*)(e[-+]?[0-9]+)?
-                } else if (float_regex.match(ex)) {
-                    let str = float_regex.group(0)
-                    this.i += str.length
-                    this.state = Lexer_AFTER_NUM
-                    return new Number(str, parseFloat(str))
-
-                // integer (hexidecimal)
-                } else if (hexidecimal_regex.match(ex)) {
-                    let str = hexidecimal_regex.group(0)
-                    this.i += str.length
-                    this.state = Lexer_AFTER_NUM
-                    return new Number(str, parseInt(str, 16))
-
-                // integer (decimal)
-                } else if (decimal_regex.match(ex)) {
-                    let str = decimal_regex.group(0)
-                    this.i += str.length
-                    this.state = Lexer_AFTER_NUM
-                    return new Number(str, parseInt(str))
-
-                } else if (ex.startsWith("(")) {
-                    this.i += "(".length
-                    return new LParen()
-
-                } else if (ex.startsWith("round")) {
-                    this.i += "round".length
-                    this.state = Lexer_AFTER_FUNC
-                    return new MathFunc("round", (a) => Math.round(a))
-
-                } else if (ex.startsWith("abs")) {
-                    this.i += "abs".length
-                    this.state = Lexer_AFTER_FUNC
-                    return new MathFunc("abs", (a) => Math.abs(a))
-
-                } else if (ex.startsWith("sqrt")) {
-                    this.i += "sqrt".length
-                    this.state = Lexer_AFTER_FUNC
-                    return new MathFunc("sqrt", (a) => Math.sqrt(a))
-
-                } else if (ex.startsWith("sin")) {
-                    this.i += "sin".length
-                    this.state = Lexer_AFTER_FUNC
-                    return new MathFunc("sin", (a) => Math.sin(a))
-
-                } else if (ex.startsWith("cos")) {
-                    this.i += "cos".length
-                    this.state = Lexer_AFTER_FUNC
-                    return new MathFunc("cos", (a) => Math.cos(a))
-
-                } else {
-                    throw new LexerException("unexpected input", this.expr, i)
-                }
-
-            } else if (this.state == Lexer_AFTER_FUNC) {
-
-                if (ex.startsWith("(")) {
-                    this.i += "(".length
-                    this.state = Lexer_START
-                    return new LParen()
-                } else {
-                    throw new LexerException("unexpected input", this.expr, i)
-                }
-
-            } else if (this.state == Lexer_AFTER_NUM) {
-
-                if (ex.startsWith(")")) {
-                    this.i += ")".length
-                    return new RParen()
-
-                } else if (ex.startsWith("**")) {
-                    this.i += "**".length
-                    this.state = Lexer_START
-                    return new BinaryOperator("**", 4, "right", (a, b) => a ** b)
-
-                } else if (ex.startsWith("*")) {
-                    this.i += "*".length
-                    this.state = Lexer_START
-                    return new BinaryOperator("*", 3, "left",  (a, b) => a * b)
-
-                } else if (ex.startsWith("/")) {
-                    this.i += "/".length
-                    this.state = Lexer_START
-                    return new BinaryOperator("/", 3, "left",  (a, b) => a / b)
-
-                } else if (ex.startsWith("%")) {
-                    this.i += "%".length
-                    this.state = Lexer_START
-                    return new BinaryOperator("%", 3, "left",  (a, b) => a % b)
-
-                } else if (ex.startsWith("+")) {
-                    this.i += "+".length
-                    this.state = Lexer_START
-                    return new BinaryOperator("+", 2, "left",  (a, b) => a + b)
-
-                } else if (ex.startsWith("-")) {
-                    this.i += "-".length
-                    this.state = Lexer_START
-                    return new BinaryOperator("-", 2, "left",  (a, b) => a - b)
-                } else {
-                    throw new LexerException("unexpected input", this.expr, i)
-                }
-            }
-        }
-
-//      if (debug) {
-//          console.log("lex state=" + lexStateStr(state))
-//      }
-
-        return null
-    }
-}
-
-// fix python 2.x division to behave like C
-function divide(n, d) {
-    sign = ((n < 0) != (d < 0)) ? -1 : 1
-    return Math.abs(n) / Math.abs(d) * sign
-}
-
-// fix python 2.x modulus to behave like C
-function modulus(n, d) {
-    sign = n < 0 ? -1 : 1
-    return Math.abs(n) % Math.abs(d) * sign
-}
-
-class MathParser {
-    constructor() {
-        this.operand_stack  = []
-        this.operator_stack = []
-    }
-
-    // multi-argument functions to add. ex: min(3, (1+1), 7) -> 2
-    // min()
-    // max()
-    dump_stacks() {
-        if (debug) {
-            console.log("operand_stack=[ " + this.operand_stack.join(", ") + " ]")
-            console.log("operator_stack=[ " + this.operator_stack.join(", ") + " ]")
-            console.log("=".repeat(20))
-        }
-    }
-
-    unary_minus_on_top_of_operator_stack() {
-        return this.operator_stack.length > 0 &&
-               this.operator_stack[this.operator_stack.length - 1] instanceof UnaryMinus
-    }
-
-    negate_operand_on_top_of_operand_stack() {
-        // pop the unary minus from the operaror_stack
-        this.operator_stack.pop()
-        // negate the operand
-        this.operand_stack.push(0 - this.operand_stack.pop())
-    }
-
-    apply_unary_minus() {
-        while (this.unary_minus_on_top_of_operator_stack()) {
-            this.negate_operand_on_top_of_operand_stack();
-        }
-        this.dump_stacks()
-    }
-
-    operands_append(number) {
-        this.operand_stack.push(number)
-        this.apply_unary_minus()
-    }
-
-    evaluate(expr) {
-
-        let lex = new Lexer(expr)
-
-        let token = lex.getToken()
-
-        while (token != null) {
-
-            if (debug) {
-                console.log("token ==> " + token)
-            }
-
-            if (token instanceof Number) {
-                // put numbers on the operand_stack
-                this.operands_append(token.val)
-            } else if (token instanceof MathFunc) {
-                // put functions on the operator_stack
-                this.operator_stack.push(token)
-            } else if (token instanceof UnaryMinus) {
-                // put unary minus on the operator_stack
-                this.operator_stack.push(token)
-            } else if (token instanceof UnaryPlus) {
-                // don't need to do anything with unary plus
-                pass
-            } else if (token instanceof BinaryOperator) {
-                // if the token is a binary operator
-
-                let new_op = token
-
-                // if there is a binary operator already on the operator_stack with a higher precedence than this new one
-                // go ahead and perform that operation before putting this new operator onto the operator_stack
-                // left associative: "2 * 3 + 4" should operate like this: (2 * 3) + 4
-                // left associative: "2 + 3 + 4" should operate like this: (2 + 3) + 4
-                // right associative: "2 ** 3 ** 4" should operate like this: 2 ** (3 ** 4)
-                while (this.operator_stack.length > 0 && this.operator_stack[this.operator_stack.length - 1] instanceof BinaryOperator) {
-                    let old_op = this.operator_stack[this.operator_stack.length - 1]
-                    if ((new_op.associative == "left" && new_op.precedence <= old_op.precedence) ||
-                        (new_op.associative == "right" && new_op.precedence < old_op.precedence)) {
-                        // pop the old op from the operator_stack
-                        this.operator_stack.pop()
-                        // get the two operands
-                        let right_operand = this.operand_stack.pop()
-                        let left_operand  = this.operand_stack.pop()
-                        // apply the function to the two operands
-                        let result = old_op.func(left_operand, right_operand)
-                        // push the result onto the operand_stack
-                        this.operands_append(result)
-                    } else {
-                        break
-                    }
-                }
-                this.operator_stack.push(new_op)
-
-            } else if (token instanceof LParen) {
-                this.operator_stack.push(token)
-            } else if (token instanceof RParen) {
-
-                let op = this.operator_stack.pop()
-                while (!(op instanceof LParen)) {
-
-                    if (op instanceof BinaryOperator) {
-                        if (this.operand_stack.length < 2) {
-                            throw new ParseException("not enough operands for binary op: " + op.str)
-                        }
-                        // get the two operands
-                        let right_operand = this.operand_stack.pop()
-                        let left_operand  = this.operand_stack.pop()
-                        let result = op.func(left_operand, right_operand)
-                        // push the result onto the operand_stack
-                        this.operands_append(result)
-                    }
-                    op = this.operator_stack.pop()
-                }
-
-                if (this.operator_stack.length > 0 && this.operator_stack[this.operator_stack.length - 1] instanceof MathFunc) {
-                    op = this.operator_stack.pop()
-                    this.operands_append(op.func(this.operand_stack.pop()))
-                }
-
-                this.apply_unary_minus()
-            } else {
-                console.log("unhandled token: " + token)
-            }
-
-            if (debug) {
-                this.dump_stacks()
-            }
-
-            token = lex.getToken()
-        }
-
-        while (this.operator_stack.length > 0) {
-            let op = this.operator_stack.pop()
-            if (!(op instanceof BinaryOperator)) {
-                throw new ParseException("invalid binary operator " + op.val)
-            }
-            if (this.operand_stack.length < 2) {
-                throw new ParseException("not enough operands for binary operator:" + this.operand_stack.length)
-            }
-            let right = this.operand_stack.pop()
-            let left  = this.operand_stack.pop()
-            let result = op.func(left, right)
-            this.operands_append(result)
-        }
-
-        return this.operand_stack.pop()
-    }
-
-    clear() {
-        // TODO clear any variables created by the user
-        this.operand_stack  = []
-        this.operator_stack = []
-    }
-}
 
 const parser = new MathParser()
 let line_separator = ""
@@ -488,9 +41,7 @@ function clickEvaluate() {
     try {
         result = parser.evaluate(expr)
     } catch (error) {
-        let errorStr = error.toString()
-        console.log(errorStr)
-        result = "<pre>" + errorStr + "</pre>"
+        result = "<pre>" + error.toString() + "</pre>"
     }
 
     // output the evaluated expression
@@ -507,39 +58,51 @@ function clickClear() {
 function clickClearAll() {
     clickClear()
 
-    // Completely clear the parser’s scope.
+    // Completely clear the parser scope.
     parser.clear()
 }
 
-const test_list = [ [ "1 + 1", 1 + 1 ],
-                    [ "(1 + (2 + (3 + (4 + (5)))))", (1 + (2 + (3 + (4 + (5))))) ],
-                    [ "((((((2) * 3) * 4) * 5) * 6) * 7)", ((((((2) * 3) * 4) * 5) * 6) * 7) ],
-                    [ "2**3**4", 2**3**4 ],
-                    [ "6 * (5 + 4) / 3", 6 * (5 + 4) / 3 ],
-                    [ "-(-(-5))", -(-(-5)) ],
-                    [ "25*-(-(-4))", 25*-(-(-4)) ],
-                    [ "abs(2.0 / -3)", Math.abs(2.0 / -3) ],
-                    [ "2 * pi * 3**2", 2 * Math.PI * 3**2 ],
-                    [ "2/3", 2/3 ],
-                    [ "2.0**2 / 2.0**2 / 2.0**2", 2.0**2 / 2.0**2 / 2.0**2 ],
-                    [ "4**2 - 3**2 - 2**2", 4**2 - 3**2 - 2**2 ],
-                    [ "(2)/3", (2)/3 ],
-                    [ "round(10.0/3)", Math.round(10.0/3) ] ]
+const examples = [ [ "1 + 1", 1 + 1 ],
+                   [ "99 % 10", 99 % 10 ],
+                   [ "(1 + (2 + (3 + (4 + (5)))))", (1 + (2 + (3 + (4 + (5))))) ],
+                   [ "((((((2) * 3) * 4) * 5) * 6) * 7)", ((((((2) * 3) * 4) * 5) * 6) * 7) ],
+                   [ "2^3^4", 2**3**4 ],
+                   [ "6 * (5 + 4) / 3", 6 * (5 + 4) / 3 ],
+                   [ "-(-(-5))", -(-(-5)) ],
+                   [ "25*-(-(-4))", 25*-(-(-4)) ],
+                   [ "abs(2.0 / -3)", Math.abs(2.0 / -3) ],
+                   [ "2 * pi * 3^2", 2 * Math.PI * 3**2 ],
+                   [ "2/3", 2/3 ],
+                   [ "2.0^2 / 2.0^2 / 2.0^2", 2.0**2 / 2.0**2 / 2.0**2 ],
+                   [ "4^2 - 3^2 - 2^2", 4**2 - 3**2 - 2**2 ],
+                   [ "(2)/3", (2)/3 ],
+                   [ "round(10.0/3)", Math.round(10.0/3) ],
+                   [ "sin(pi/2)", Math.sin(Math.PI/2) ],
+                   [ "cos(pi/4)", Math.cos(Math.PI/4) ],
+                   [ "tan(pi/6)", Math.tan(Math.PI/6) ] ]
 
-function clickSelfTest() {
-    for (let i = 0; i < test_list.length; i++) {
-        let expr           = test_list[i][0]
-        let expected_result = test_list[i][1]
+function clickRunExamples() {
+    for (let i = 0; i < examples.length; i++) {
+        let expr            = examples[i][0]
+        let expected_result = examples[i][1]
+
         document.getElementById("myText").value = expr
-
         document.getElementById("output").innerHTML += line_separator + ">> " + expr
 
         line_separator = "<br>"
 
+        let result = ""
+
         // Evaluate an expression. Returns the result of the expression.
-        let result = parser.evaluate(expr)
-        if (result != expected_result) {
-            console.log("FAIL expr: " + expr + " result: " + result + " expected_result: " + expected_result);
+        try {
+            result = parser.evaluate(expr)
+
+            if (result != expected_result) {
+                result = "<pre>FAIL expr: " + expr + "\nresult: " + result + "\nexpected_result: " + expected_result + "</pre>"
+            }
+
+        } catch (error) {
+            result = "<pre>" + error.toString() + "</pre>"
         }
 
         // output the evaluated expression
@@ -560,7 +123,6 @@ document.getElementById("myText").addEventListener("keyup",
         }
     }
 )
-
 
 </script>
 
