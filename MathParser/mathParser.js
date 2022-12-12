@@ -115,9 +115,9 @@ function lexStateStr(state) {
 //         1.125
 //         .333
 //         5.
-// TODO 1.2e-2
+// TODO 2.4178516392292583e+24
 const float_regex       = new Regex(/^[+-]?([0-9]+\.[0-9]+e[+-][0-9]+|[0-9]+\.[0-9]+|\.[0-9]+|[0-9]+\.)/)
-const decimal_regex     = new Regex(/^[+-]?[0-9]+/)
+const decimal_regex     = new Regex(/^[+-]?([0-9]+|[0-9]+e[+-][0-9]+)/)
 const hexidecimal_regex = new Regex(/^0[xX][0-9a-fA-F]+/)
 
 // lexer to recognizer tokens in a mathematical expression
@@ -150,28 +150,19 @@ class Lexer {
 
             if (this.state == Lexer_START) {
 
-                // unary plus
-                if (ex.startsWith("+")) {
-                    this.i += "+".length
-                    return new UnaryPlus()
-
-                // unary minus
-                } else if (ex.startsWith("-")) {
-                    this.i += "-".length
-                    return new UnaryMinus()
-
-                // pi
-                } else if (ex.startsWith("pi")) {
-                    this.i += "pi".length
-                    this.state = Lexer_AFTER_NUM
-                    return new Number("pi", Math.PI)
-
                 // float
-                } else if (float_regex.match(ex)) {
+                if (float_regex.match(ex)) {
                     let str = float_regex.group(0)
                     this.i += str.length
                     this.state = Lexer_AFTER_NUM
                     return new Number(str, parseFloat(str))
+
+                // integer (decimal)
+                } else if (decimal_regex.match(ex)) {
+                    let str = decimal_regex.group(0)
+                    this.i += str.length
+                    this.state = Lexer_AFTER_NUM
+                    return new Number(str, parseInt(str))
 
                 // integer (hexidecimal)
                 } else if (hexidecimal_regex.match(ex)) {
@@ -180,12 +171,21 @@ class Lexer {
                     this.state = Lexer_AFTER_NUM
                     return new Number(str, parseInt(str, 16))
 
-                // integer (decimal)
-                } else if (decimal_regex.match(ex)) {
-                    let str = decimal_regex.group(0)
-                    this.i += str.length
+                // pi
+                } else if (ex.startsWith("pi")) {
+                    this.i += "pi".length
                     this.state = Lexer_AFTER_NUM
-                    return new Number(str, parseInt(str))
+                    return new Number("pi", Math.PI)
+
+                // unary plus
+                } else if (ex.startsWith("+")) {
+                    this.i += "+".length
+                    return new UnaryPlus()
+
+                // unary minus
+                } else if (ex.startsWith("-")) {
+                    this.i += "-".length
+                    return new UnaryMinus()
 
                 } else if (ex.startsWith("(")) {
                     this.i += "(".length
@@ -339,17 +339,13 @@ class MathParser {
             }
 
             if (token instanceof Number) {
-                // put numbers on the operand_stack
-                this.operands_append(token.val)
+                this.operands_append(token.val)         // put numbers on the operand_stack
             } else if (token instanceof MathFunc) {
-                // put functions on the operator_stack
-                this.operator_stack.push(token)
+                this.operator_stack.push(token)         // put functions on the operator_stack
             } else if (token instanceof UnaryMinus) {
-                // put unary minus on the operator_stack
-                this.operator_stack.push(token)
+                this.operator_stack.push(token)         // put unary minus on the operator_stack
             } else if (token instanceof UnaryPlus) {
-                // don't need to do anything with unary plus
-                pass
+                pass                                    // don't need to do anything with unary plus
             } else if (token instanceof BinaryOperator) {
                 // if the token is a binary operator
 
@@ -368,18 +364,14 @@ class MathParser {
                     if ((new_op.associative == "left" && old_op.precedence >= new_op.precedence) ||
                         (new_op.associative == "right" && old_op.precedence > new_op.precedence)) {
 
-                        // pop the old op from the operator_stack
-                        this.operator_stack.pop()
+                        this.operator_stack.pop()                       // pop the old op from the operator_stack
 
-                        // get the two operands
-                        let right_operand = this.operand_stack.pop()
+                        let right_operand = this.operand_stack.pop()    // get the right and left operands
                         let left_operand  = this.operand_stack.pop()
 
-                        // apply the function to the two operands
                         let result = old_op.func(left_operand, right_operand)
 
-                        // push the result onto the operand_stack
-                        this.operands_append(result)
+                        this.operands_append(result)                    // push the result onto the operand_stack
 
                     } else {
                         break
@@ -389,6 +381,7 @@ class MathParser {
 
             } else if (token instanceof LParen) {
                 this.operator_stack.push(token)
+
             } else if (token instanceof RParen) {
 
                 let op = this.operator_stack.pop()
@@ -398,19 +391,23 @@ class MathParser {
                         if (this.operand_stack.length < 2) {
                             throw new ParseException("not enough operands for binary op: " + op.str)
                         }
-                        // get the two operands
-                        let right_operand = this.operand_stack.pop()
+
+                        let right_operand = this.operand_stack.pop()    // get the right and left operands
                         let left_operand  = this.operand_stack.pop()
+
                         let result = op.func(left_operand, right_operand)
-                        // push the result onto the operand_stack
-                        this.operands_append(result)
+
+                        this.operands_append(result)                    // push the result onto the operand_stack
                     }
                     op = this.operator_stack.pop()
                 }
 
                 if (this.operator_stack.length > 0 && this.operator_stack[this.operator_stack.length - 1] instanceof MathFunc) {
                     op = this.operator_stack.pop()
-                    this.operands_append(op.func(this.operand_stack.pop()))
+                    let operand = this.operand_stack.pop()
+                    let result = op.func(operand)
+
+                    this.operands_append(result)                    // push the result onto the operand_stack
                 }
 
                 this.apply_unary_minus()
@@ -428,15 +425,16 @@ class MathParser {
         while (this.operator_stack.length > 0) {
             let op = this.operator_stack.pop()
             if (!(op instanceof BinaryOperator)) {
-                throw new ParseException("invalid binary operator " + op.val)
+                throw new ParseException("invalid binary operator " + op.str)
             }
             if (this.operand_stack.length < 2) {
                 throw new ParseException("not enough operands for binary operator")
             }
-            let right = this.operand_stack.pop()
-            let left  = this.operand_stack.pop()
-            let result = op.func(left, right)
-            this.operands_append(result)
+            let right_operand = this.operand_stack.pop()
+            let left_operand  = this.operand_stack.pop()
+            let result = op.func(left_operand, right_operand)
+
+            this.operands_append(result)                    // push the result onto the operand_stack
         }
 
         return this.operand_stack.pop()

@@ -1,22 +1,100 @@
 <!DOCTYPE html>
-<!-- vim: set ft=html ts=2 sw=2 expandtab: -->
+<!-- vim: set ts=2 sw=2 expandtab: -->
+<meta charset="UTF-8">
 <html>
-  <head>
-    <title>RajeshGottlieb</title>
-  </head>
+<head>
+  <title>RajeshGottlieb</title>
+
+  <style>
+    /* Remove default bullets */
+    ul, #myUL {
+      list-style-type: none;
+    }
+
+    /* Remove margins and padding from the parent ul */
+    #myUL {
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Style the caret/arrow */
+    .caret {
+      cursor: pointer;
+      user-select: none; /* Prevent text selection */
+    }
+
+    /* Create the caret/arrow with a unicode, and style it */
+    .caret::before {
+      content: "\25B6";
+      color: black;
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    /* Rotate the caret/arrow icon when clicked on (using JavaScript) */
+    .caret-down::before {
+      transform: rotate(90deg);
+    }
+
+    /* Hide the nested list */
+    .nested {
+      display: none;
+    }
+
+    /* Show the nested list when the user clicks on the caret/arrow (with JavaScript) */
+    .active {
+      display: block;
+    }
+
+    table {
+      border-collapse: collapse;
+      border-spacing: 0px;
+    }
+  </style>
+</head>
+
 <body>
 
-<ul>
-  <li>
-    <a href="./MathParserJS/index.html">MathParserJS</a>: Mathematical Expression Evaluator using the excellent math.js library.
-  </li>
-  <li>
-    <a href="./MathParser/index.html">MathParser</a>: Homemade Mathematical Expression Evaluator.
-  </li>
-  <li>
-    <a href="./CheatSheets/index.html">Cheat Sheets</a>
-  </li>
-</ul>
+  <table width="100%">
+    <tr>
+      <td valign="top" width="40%">
+        <div>
+          <h2>Rajesh's Stuff</h2>
+          <ul>
+            <li><span class="caret">Coding</span>
+              <ul class="nested">
+                <li><a href="./MathParserJS/index.html" target="rightframe">MathParserJS</a>: Mathematical Expression Evaluator using the excellent math.js library.</li>
+                <li><a href="./MathParser/index.html" target="rightframe">MathParser</a>: Homemade Mathematical Expression Evaluator.</li>
+              </ul>
+            </li>
+            <li><span class="caret">Cheat Sheets</span>
+              <ul class="nested">
+                <li><a href="CheatSheets/git.html" target="rightframe">git</a></li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </td>
+      <td width="60%">
+        <div class="iframe_container">
+          <iframe frameborder="0" name="rightframe" id="rightframe" width="100%" height="2000" src="./MathParserJS/index.html">
+          </iframe>
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <script>
+    var toggler = document.getElementsByClassName("caret");
+    var i;
+
+    for (i = 0; i < toggler.length; i++) {
+      toggler[i].addEventListener("click", function() {
+        this.parentElement.querySelector(".nested").classList.toggle("active");
+        this.classList.toggle("caret-down");
+      });
+    }
+  </script>
 
 </body>
 </html>
