@@ -6,44 +6,49 @@
   </head>
 <body>
 
-<h1>Git</h1>
+<h1>Git Cheat Sheet</h1>
 
-<p>git cherry-pick –no-commit &lt;hash&gt;</p>
+<p>
+# Pull in commits by hash (from other branches)<br>
+git cherry-pick –no-commit &lt;hash&gt;<br>
+</p>
 
-<div>
-<p># dry run</p>
-<p>git clean -f -d -n</p>
-<p>git clean -f -d</p>
-</div>
+<p>
+# Remove files and directories not in git<br>
+git clean -f -d -n<br>
+git clean -f -d<br>
+</p>
 
-<div>
-<p># squash last two commits into one - interactive</p>
-<p>git rebase -i HEAD~2</p>
-</div>
+<p>
+# squash last two commits into one - interactive<br>
+git rebase -i HEAD~2<br>
+</p>
 
-<div>
-<p>git push –force</p>
-</div>
+<p>
+# Force origin to accept local changes. Good to use after squashing commits into one.<br>
+git push --force<br>
+</p>
 
-<div>
-<p>git revert --no-commit 159995a8856</p>
-</div>
+<p>
+git revert --no-commit 159995a8856<br>
+</p>
 
-<div>
-<p># delete branch locally
-<p>git branch -d &lt;branch-name&gt;</p>
-</div>
+<p>
+# delete branch locally<br>
+git branch -d &lt;branch-name&gt;<br>
+</p>
 
-<div>
-<p># checkout modified files to then send to git checkout</p>
-<p>git status -uno | grep modified: | awk '{print $3}' | xargs git checkout</p>
-<p>git reset  --hard</p>
-</div>
+<p>
+# list modified files to then send to git checkout<br>
+git status -uno | grep modified: | awk '{print $3}' | xargs git checkout<br>
+git reset  --hard<br>
+</p>
 
-<div>
-<p>git log --author="Doe, John <John.Doe@localhost.com>"</p>
-<p>git log --all --grep='TODO'</p>
-</div>
+<p>
+# search git log<br>
+git log --author="Doe, John <John.Doe@localhost.com>"<br>
+git log --all --grep='TODO'<br>
+</p>
 
 </body>
 </html>

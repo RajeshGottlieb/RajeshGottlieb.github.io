@@ -15,6 +15,7 @@
 <button onclick="clickEvaluate()">Evaluate</button>
 <button onclick="clickClear()">Clear</button>
 <button onclick="clickClearAll()">Clear All</button>
+<button onclick="clickClearOutput()">Clear Output</button>
 <button onclick="clickRunExamples()">Run Examples</button>
 <p id="output"></p>
 
@@ -60,6 +61,12 @@ function clickClearAll() {
 
     // Completely clear the parser scope.
     parser.clear()
+}
+
+function clickClearOutput() {
+    document.getElementById("output").innerHTML = ""
+
+    line_separator = ""
 }
 
 const examples = [ [ "1 + 1", 1 + 1 ],

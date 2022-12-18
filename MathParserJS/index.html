@@ -15,6 +15,7 @@
 <button onclick="clickEvaluate()">Evaluate</button>
 <button onclick="clickClear()">Clear</button>
 <button onclick="clickClearAll()">Clear All</button>
+<button onclick="clickClearOutput()">Clear Output</button>
 <button onclick="clickRunExamples()">Run Examples</button>
 <p id="output"></p>
 
@@ -59,12 +60,18 @@ function clickClearAll() {
     parser.clear()
 }
 
+function clickClearOutput() {
+    document.getElementById("output").innerHTML = ""
+
+    line_separator = ""
+}
+
 const examples = [ [ "1 + 1", 1 + 1 ],
                    [ "99 % 10", 99 % 10 ],
                    [ "(1 + (2 + (3 + (4 + (5)))))", (1 + (2 + (3 + (4 + (5))))) ],
                    [ "((((((2) * 3) * 4) * 5) * 6) * 7)", ((((((2) * 3) * 4) * 5) * 6) * 7) ],
                    [ "2^3^4", 2**3**4 ],
-                   [ "6 * (5 + 4) / 3", 6 * (5 + 4) / 3 ],
+                   [ "-6 * (5 + 4) / 3", -6 * (5 + 4) / 3 ],
                    [ "-(-(-5))", -(-(-5)) ],
                    [ "25*-(-(-4))", 25*-(-(-4)) ],
                    [ "abs(2.0 / -3)", Math.abs(2.0 / -3) ],
