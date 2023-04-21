@@ -1,28 +1,34 @@
 // 15 Puzzle
 
-let fontsize = 40;
+const fontsize = 48;
 
-const tileFillColor = '#FFE4C4';
+//const canvasColor = '#c7b183';
+const canvasColor = '#d3d3d3';
+const normalTileColor = '#FFE4C4';
+const solvedTileColor = '#bcd4b6';
+let tileColor = normalTileColor;
 const tileBorderColor = '#000000';
 const textColor = '#000000';
-
-let tileWidth;
-let tileHeight;
 
 let grid = [[null, null, null, null],
             [null, null, null, null],
             [null, null, null, null],
             [null, null, null, null]];
-let movesSpan = null;
+
+let boardBorder = 5;
+let boardSideLength;
+let boardX;
+let boardY;
+let tileWidth;
+let span;
+
 let moveCount = 0;
 
 // One of the 15 Tiles one the grid within one Cell or between two Cells.
 // Tiles move - Cells don't. 
 class Tile {
-    constructor(number, width, height, cell) {
+    constructor(number, cell) {
         this.number = number;
-        this.width = width;
-        this.height = height;
         this.cell = cell;
     }
 
@@ -36,19 +42,19 @@ class Tile {
 
     draw() {
         push();
-        translate(this.cell.col * this.width, this.cell.row * this.height);
+        translate(this.cell.col * tileWidth, this.cell.row * tileWidth);
 
         // Draw the tile rectangle
-        fill(tileFillColor);
+        fill(tileColor);
         stroke(tileBorderColor);
         strokeWeight(5);
-        rect(0, 0, this.width, this.height, 20);
+        rect(0, 0, tileWidth-2, tileWidth-2, 20);
 
         // Draw the tile number
         fill(textColor);
         stroke(textColor);
         strokeWeight(1);
-        text(this.number, this.width / 2, this.height / 2);
+        text(this.number, tileWidth / 2, tileWidth / 2);
 
         pop();
     }
@@ -81,7 +87,7 @@ function initGrid() {
 
             // 15 Tiles
             if (number < 16) {
-                cell.tile = new Tile(number, tileWidth, tileHeight, cell);
+                cell.tile = new Tile(number, tileWidth, tileWidth, cell);
             }
 
             grid[row][col] = cell;
@@ -93,8 +99,8 @@ function initGrid() {
     return grid;
 }
 
-// Is the puzzle completed?
-function isCompleted() {
+// Is the puzzle Solved?
+function isSolved() {
     let number = 1;
 
     for (let row = 0; row < grid.length; row++) {
@@ -228,42 +234,62 @@ function preload() {
 
 function mouseReleased() {
 //  console.log("mouseX = " + mouseX + " mouseY = " + mouseY);
-    col = int(mouseX / (width / grid[0].length));
-    row = int(mouseY / (height / grid.length));
-    click(row, col);
+    col = int((mouseX - boardX) / tileWidth);
+    row = int((mouseY - boardY) / tileWidth);
+//  print("col=" + col + " row=" + row);
+    if (row >= 0 && row < 4 && col >= 0 && col < 4)
+        click(row, col);
 }
 
 function setup() {
+    print("windowWidth=" + windowWidth + " windowHeight=" + windowHeight);
 
-    let shortSide = (windowWidth < windowHeight) ? windowWidth : windowHeight;
-    shortSide = int(shortSide / 4) * 4;
-    if (shortSide > 400) {
-        shortSide = 400;
+    const targetAspectRatio = 16 / 9; // most cell phones have an aspect ration of 16:9
+    print("targetAspectRatio=" + targetAspectRatio);
+
+    let aspectRatio = windowHeight / windowWidth;
+    print("aspectRatio=" + aspectRatio);
+
+    let canvasWidth;
+    let canvasHeight;
+
+    if (aspectRatio < targetAspectRatio) {
+        // shrink the width to acheive the targetAspectRatio
+        canvasHeight = windowHeight;
+        canvasWidth = int(9 * windowHeight / 16);
+    } else {
+        // shrink the height to acheive the targetAspectRatio
+        canvasWidth = windowWidth;
+        canvasHeight = int(16 * canvasWidth / 9);
     }
-    let canvasWidth = shortSide;
-    let canvasHeight = shortSide;
-//  createCanvas(400, 400);
+
+    print("canvasWidth=" + canvasWidth + " canvasHeight=" + canvasHeight);
+    print("canvasHeight/canvasWidth=" + canvasHeight/canvasWidth);
+
+    boardSideLength = int(canvasWidth - 2 * boardBorder);
+    tileWidth = int(boardSideLength / 4)
+    print("boardSideLength=" + boardSideLength + " tileWidth=" + tileWidth);
+
+    boardBorder = (canvasWidth - boardSideLength) / 2;
+    boardX = boardBorder;
+    boardY = (canvasHeight - boardSideLength) / 2; // centered vertically
+    print("boardX=" + boardX + " boardY=" + boardY);
     createCanvas(canvasWidth, canvasHeight);
-    createP();
-//  createSpan("windowWidth=" + windowWidth + " windowHeight=" + windowHeight);
-//  createP();
-//  createSpan("shortSide=" + shortSide);
-//  createP();
-    
-    movesSpan = createSpan("Moves: " + moveCount);
-    createP();
 
-    let newGameButton = createButton("New Game");
-    newGameButton.mouseClicked(newGameButtonClicked);
-    // could put button on canvas
-//  newGameButton.position(100, 100);
-//  newGameButton.size(100, 100);
+    //  createCanvas(windowWidth, windowHeight);
+    span = createSpan("Moves: 100");
+    // center vertically in the space above the board
+    let spanX = boardBorder * 2;
+    let spanY = int((canvasHeight - canvasWidth) / 4 - span.height / 2);
+    span.position(spanX, spanY);
 
-    tileWidth = width / 4;
-    tileHeight = height / 4;
+    let button = createButton("New Game");
+    // center horizontally and vertically in the space below the board
+    let buttonX = canvasWidth / 2 - button.width / 2;
+    let buttonY = int(canvasHeight - (canvasHeight - canvasWidth) / 4 - button.height / 2);
+    button.position(buttonX, buttonY);
+    button.mouseClicked(newGameButtonClicked);
 
-    // Set text characteristics
-    //textFont(font);
     textSize(fontsize);
     textAlign(CENTER, CENTER);
 
@@ -272,8 +298,19 @@ function setup() {
 }
 
 function draw() {
-    // clear the background
-    background(0);
+    // clear the canvas background
+    background(canvasColor);
+
+    // draw the grid background
+    fill("#000000");
+    rect(boardX, boardY, boardSideLength, boardSideLength, 18);
+
+    let solved = isSolved();
+
+    tileColor = solved ? solvedTileColor : normalTileColor;
+
+    push();
+    translate(boardX + boardBorder/2, boardY + boardBorder/2);
 
     // loop through each cell in the grid displaying tiles
     for (let row = 0; row < grid.length; row++) {
@@ -286,6 +323,9 @@ function draw() {
         }
     }
 
-    let completedStr = isCompleted() ? "<b>COMPLETED!</b> " : "";
-    movesSpan.html(completedStr + "Moves: " + moveCount);
+    pop();
+
+    let spanHtml = solved ? "<b>Solved!</b> " : "";
+    spanHtml += "Moves: " + moveCount;
+    span.html(spanHtml);
 }
