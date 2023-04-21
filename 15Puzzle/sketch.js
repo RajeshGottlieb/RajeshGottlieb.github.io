@@ -46,14 +46,14 @@ class Tile {
 
         // Draw the tile rectangle
         fill(tileColor);
-        stroke(tileBorderColor);
-        strokeWeight(5);
-        rect(0, 0, tileWidth-2, tileWidth-2, 20);
+    //  stroke(tileBorderColor);
+    //  strokeWeight(2);
+        rect(0, 0, tileWidth-4, tileWidth-4, 20);
 
         // Draw the tile number
         fill(textColor);
-        stroke(textColor);
-        strokeWeight(1);
+    //  stroke(textColor);
+    //  strokeWeight(1);
         text(this.number, tileWidth / 2, tileWidth / 2);
 
         pop();
@@ -244,7 +244,8 @@ function mouseReleased() {
 function setup() {
     print("windowWidth=" + windowWidth + " windowHeight=" + windowHeight);
 
-    const targetAspectRatio = 16 / 9; // most cell phones have an aspect ration of 16:9
+    // Looks best on my cell phone with a 16:10 aspect ratio
+    const targetAspectRatio = 16 / 10;
     print("targetAspectRatio=" + targetAspectRatio);
 
     let aspectRatio = windowHeight / windowWidth;
